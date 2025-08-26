@@ -74,35 +74,18 @@ export default function Home() {
         throw new Error('Failed to get response')
       }
 
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('No response body')
-
-      let assistantMessage = ''
-      const assistantMessageId = (Date.now() + 1).toString()
+      const data = await response.json()
       
-      // Add initial assistant message
-      const initialAssistantMessage: Message = {
-        id: assistantMessageId,
-        role: 'assistant',
-        content: '',
-        timestamp: new Date()
-      }
-      setMessages(prev => [...prev, initialAssistantMessage])
-
-      // Stream the response
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = new TextDecoder().decode(value)
-        assistantMessage += chunk
-
-        // Update the assistant message with new content
-        setMessages(prev => prev.map(msg => 
-          msg.id === assistantMessageId 
-            ? { ...msg, content: assistantMessage }
-            : msg
-        ))
+      if (data.status === 'success') {
+        const assistantMessage: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: data.content,
+          timestamp: new Date()
+        }
+        setMessages(prev => [...prev, assistantMessage])
+      } else {
+        throw new Error(data.error || 'Unknown error')
       }
 
     } catch (error) {
