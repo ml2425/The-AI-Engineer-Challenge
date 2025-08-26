@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
-import { X, Key, Bot, MessageSquare, Save } from 'lucide-react'
+import { X, Bot, MessageSquare, Save } from 'lucide-react'
 
 interface ApiKeyModalProps {
-  onSave: (apiKey: string) => void
+  onSave: () => void
   onClose: () => void
-  initialApiKey: string
   model: string
   setModel: (model: string) => void
   developerMessage: string
@@ -14,33 +13,18 @@ interface ApiKeyModalProps {
 export default function ApiKeyModal({
   onSave,
   onClose,
-  initialApiKey,
   model,
   setModel,
   developerMessage,
   setDeveloperMessage
 }: ApiKeyModalProps) {
-  const [apiKey, setApiKey] = useState(initialApiKey)
   const [tempModel, setTempModel] = useState(model)
   const [tempDeveloperMessage, setTempDeveloperMessage] = useState(developerMessage)
-  const [isValid, setIsValid] = useState(false)
-
-  useEffect(() => {
-    setIsValid(apiKey.trim().length > 0)
-  }, [apiKey])
 
   const handleSave = () => {
-    if (isValid) {
-      setModel(tempModel)
-      setDeveloperMessage(tempDeveloperMessage)
-      onSave(apiKey)
-    }
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && isValid) {
-      handleSave()
-    }
+    setModel(tempModel)
+    setDeveloperMessage(tempDeveloperMessage)
+    onSave()
   }
 
   const models = [
@@ -61,11 +45,11 @@ export default function ApiKeyModal({
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-              <Key className="w-5 h-5 text-white" />
+              <Bot className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">API Configuration</h2>
-              <p className="text-sm text-gray-500">Configure your AI chat settings</p>
+              <h2 className="text-xl font-bold text-gray-900">Chat Settings</h2>
+              <p className="text-sm text-gray-500">Configure your AI chat preferences</p>
             </div>
           </div>
           <button
@@ -78,27 +62,6 @@ export default function ApiKeyModal({
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* API Key Section */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              API Key
-            </label>
-            <div className="relative">
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Enter your API key"
-                className="input-field pr-10"
-              />
-              <Key className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            </div>
-            <p className="mt-2 text-sm text-gray-500">
-              Your API key is stored locally and never sent to our servers.
-            </p>
-          </div>
-
           {/* Model Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -137,14 +100,12 @@ export default function ApiKeyModal({
             </p>
           </div>
 
-          {/* Help Section */}
+          {/* Info Section */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-blue-900 mb-2">Getting API Keys</h3>
-            <div className="space-y-2 text-sm text-blue-800">
-              <p><strong>OpenAI:</strong> Visit <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline">platform.openai.com</a></p>
-              <p><strong>Anthropic:</strong> Visit <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" className="underline">console.anthropic.com</a></p>
-              <p><strong>Google:</strong> Visit <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline">makersuite.google.com</a></p>
-            </div>
+            <h3 className="text-sm font-medium text-blue-900 mb-2">API Key Information</h3>
+            <p className="text-sm text-blue-800">
+              The API key is configured on the server side. You can start chatting immediately without entering any keys.
+            </p>
           </div>
         </div>
 
@@ -158,11 +119,10 @@ export default function ApiKeyModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={!isValid}
             className="btn-primary flex items-center space-x-2"
           >
             <Save className="w-4 h-4" />
-            <span>Save Configuration</span>
+            <span>Save Settings</span>
           </button>
         </div>
       </div>

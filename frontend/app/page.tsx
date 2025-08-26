@@ -17,7 +17,6 @@ export default function Home() {
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showApiKeyModal, setShowApiKeyModal] = useState(false)
-  const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState('gpt-4.1-mini')
   const [developerMessage, setDeveloperMessage] = useState('You are a helpful AI assistant.')
   
@@ -32,18 +31,8 @@ export default function Home() {
     scrollToBottom()
   }, [messages])
 
-  useEffect(() => {
-    // Check if API key is stored in localStorage
-    const storedApiKey = localStorage.getItem('ai-chat-api-key')
-    if (storedApiKey) {
-      setApiKey(storedApiKey)
-    } else {
-      setShowApiKeyModal(true)
-    }
-  }, [])
-
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() || !apiKey) return
+    if (!inputMessage.trim()) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -65,8 +54,8 @@ export default function Home() {
         body: JSON.stringify({
           developer_message: developerMessage,
           user_message: inputMessage,
-          model: model,
-          api_key: apiKey
+          model: model
+          // No need to send API key - backend uses environment variable
         }),
       })
 
@@ -93,7 +82,7 @@ export default function Home() {
       const errorMessage: Message = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please check your API key and try again.',
+        content: 'Sorry, I encountered an error. Please try again.',
         timestamp: new Date()
       }
       setMessages(prev => [...prev, errorMessage])
@@ -113,10 +102,8 @@ export default function Home() {
     setMessages([])
   }
 
-  const saveApiKey = (key: string) => {
-    setApiKey(key)
-    localStorage.setItem('ai-chat-api-key', key)
-    setShowApiKeyModal(false)
+  const openSettings = () => {
+    setShowApiKeyModal(true)
   }
 
   return (
@@ -135,11 +122,11 @@ export default function Home() {
           </div>
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => setShowApiKeyModal(true)}
+              onClick={openSettings}
               className="btn-secondary flex items-center space-x-2"
             >
-              <Key className="w-4 h-4" />
-              <span>API Key</span>
+              <Settings className="w-4 h-4" />
+              <span>Settings</span>
             </button>
             <button
               onClick={clearChat}
@@ -188,34 +175,26 @@ export default function Home() {
               placeholder="Type your message here..."
               className="input-field resize-none"
               rows={1}
-              disabled={isLoading || !apiKey}
+              disabled={isLoading}
             />
           </div>
           <button
             onClick={handleSendMessage}
-            disabled={isLoading || !inputMessage.trim() || !apiKey}
+            disabled={isLoading || !inputMessage.trim()}
             className="btn-primary flex items-center space-x-2"
           >
             <Send className="w-4 h-4" />
             <span>Send</span>
           </button>
         </div>
-        
-        {!apiKey && (
-          <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
-              Please set your API key to start chatting.
-            </p>
-          </div>
-        )}
       </div>
 
-      {/* API Key Modal */}
+      {/* Settings Modal */}
       {showApiKeyModal && (
         <ApiKeyModal
-          onSave={saveApiKey}
+          onSave={() => setShowApiKeyModal(false)}
           onClose={() => setShowApiKeyModal(false)}
-          initialApiKey={apiKey}
+          initialApiKey=""
           model={model}
           setModel={setModel}
           developerMessage={developerMessage}

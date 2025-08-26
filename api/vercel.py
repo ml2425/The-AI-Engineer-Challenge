@@ -12,8 +12,17 @@ class handler(BaseHTTPRequestHandler):
             request_data = json.loads(post_data.decode('utf-8'))
             
             try:
+                # Use environment variable for API key (more secure)
+                api_key = os.environ.get('OPENAI_API_KEY')
+                if not api_key:
+                    # Fallback to user-provided key if env var not set
+                    api_key = request_data.get('api_key', '')
+                
+                if not api_key:
+                    raise Exception('No API key available')
+                
                 # Initialize OpenAI client
-                client = OpenAI(api_key=request_data['api_key'])
+                client = OpenAI(api_key=api_key)
                 
                 # Create chat completion
                 response = client.chat.completions.create(
