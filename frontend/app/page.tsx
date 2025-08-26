@@ -194,7 +194,6 @@ export default function Home() {
         <ApiKeyModal
           onSave={() => setShowApiKeyModal(false)}
           onClose={() => setShowApiKeyModal(false)}
-          initialApiKey=""
           model={model}
           setModel={setModel}
           developerMessage={developerMessage}
