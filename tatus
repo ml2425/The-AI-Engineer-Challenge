@@ -1,2 +1,7 @@
 * [32mfeature/chat-implementation[m
   main[m
+[33m421ab4b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/chat-implementation[m[33m, [m[1;31morigin/feature/chat-implementation[m[33m)[m fix: Remove unused initialApiKey prop to fix build error
+[33m431fe4e[m feat: Remove user API key requirement - Use environment variable for backend API key - Simplify frontend - no more API key input - Users can chat immediately - More secure and user-friendly
+[33m794261c[m fix: Convert backend to Vercel-compatible serverless function - Replace FastAPI with Vercel serverless handler - Update frontend to handle non-streaming responses - Fix API key recognition issue
+[33me87fbb1[m feat: Configure single Vercel deployment for full-stack app - Add root vercel.json for combined frontend/backend - Update api/vercel.json for Python backend - Remove localhost rewrite from frontend config
+[33m1ef40cf[m feat: Add Vercel configuration for correct build settings

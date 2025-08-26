@@ -55,7 +55,6 @@ export default function Home() {
           developer_message: developerMessage,
           user_message: inputMessage,
           model: model
-          // No need to send API key - backend uses environment variable
         }),
       })
 
