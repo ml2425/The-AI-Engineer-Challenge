@@ -133,13 +133,18 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/upload-pdf")
-async def upload_pdf(file: UploadFile = File(...), api_key: str = Form(...)):
+async def upload_pdf(file: UploadFile = File(...)):
     """Upload and process PDF file"""
     global vector_db, pdf_chunks
     
     try:
         if not file.filename.lower().endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+        
+        # Get API key from environment variable
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="OpenAI API key not configured")
         
         # Save uploaded file temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
@@ -195,8 +200,13 @@ async def query_pdf(request: PDFQueryRequest):
                 "sources": []
             }
         
+        # Get API key from environment variable
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+        
         # Search for relevant chunks
-        context_list = await search_similar_chunks(request.question, request.api_key)
+        context_list = await search_similar_chunks(request.question, api_key)
         
         if not context_list:
             return {
