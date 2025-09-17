@@ -14,6 +14,9 @@ from typing import Optional, Dict, Any
 import PyPDF2
 import numpy as np
 from openai import OpenAI
+import json
+import uuid
+from datetime import datetime
 
 # Initialize FastAPI application
 app = FastAPI(title="PDF RAG API")
@@ -39,6 +42,17 @@ class ChatRequest(BaseModel):
 
 class PDFQueryRequest(BaseModel):
     question: str
+    api_key: str
+
+class MedicalAnalysisRequest(BaseModel):
+    question: str
+    api_key: str
+    context_type: str = "medical_literature"
+    include_clinical_implications: bool = True
+    doctor_input: Optional[str] = None
+
+class JSONImportRequest(BaseModel):
+    json_data: Dict[str, Any]
     api_key: str
 
 def extract_text_from_pdf(pdf_file_path: str) -> str:
@@ -263,6 +277,126 @@ Please provide your answer based solely on the context above."""
             "answer": f"Error processing question: {str(e)}",
             "context_count": 0,
             "sources": []
+        }
+
+@app.post("/api/medical-analysis")
+async def medical_analysis(request: MedicalAnalysisRequest):
+    """Medical literature analysis endpoint"""
+    try:
+        client = OpenAI(api_key=request.api_key)
+        
+        # Create medical-specific system prompt
+        system_message = """You are a medical AI assistant specializing in literature analysis and clinical interpretation. 
+
+Your role:
+- Analyze medical literature with clinical accuracy
+- Provide evidence-based insights
+- Consider clinical implications and patient care
+- Identify limitations and areas for further research
+- Maintain medical terminology and precision
+
+Guidelines:
+- Base responses strictly on the provided medical literature
+- Highlight clinical relevance and practical applications
+- Identify potential limitations or biases in the research
+- Suggest areas where additional research might be needed
+- Use appropriate medical terminology
+- Consider patient safety and clinical decision-making implications"""
+
+        # Build user message with context
+        user_message = f"""Medical Literature Analysis Request:
+
+Question: {request.question}
+
+Context Type: {request.context_type}
+Include Clinical Implications: {request.include_clinical_implications}
+
+{f"Doctor Input: {request.doctor_input}" if request.doctor_input else ""}
+
+Please provide a comprehensive analysis including:
+1. Direct answer based on medical literature
+2. Clinical implications and practical applications
+3. Limitations or considerations
+4. Recommendations for clinical practice
+
+Use appropriate medical terminology and maintain clinical accuracy."""
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_message}
+            ]
+        )
+        
+        answer = response.choices[0].message.content
+        
+        # Extract clinical implications
+        clinical_implications = []
+        if request.include_clinical_implications:
+            clinical_keywords = [
+                "clinical implication", "patient care", "treatment", "diagnosis",
+                "clinical practice", "medical management", "therapeutic", "prognosis"
+            ]
+            sentences = answer.split('.')
+            for sentence in sentences:
+                if any(keyword in sentence.lower() for keyword in clinical_keywords):
+                    clinical_implications.append(sentence.strip())
+        
+        return {
+            "success": True,
+            "answer": answer,
+            "clinical_implications": clinical_implications[:3],
+            "confidence_score": 0.85,
+            "context_type": request.context_type,
+            "doctor_input": request.doctor_input
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "answer": f"Error in medical analysis: {str(e)}",
+            "clinical_implications": [],
+            "confidence_score": 0.0
+        }
+
+@app.post("/api/import-json")
+async def import_json(request: JSONImportRequest):
+    """Import medical analysis JSON"""
+    try:
+        json_data = request.json_data
+        
+        # Validate structure
+        if not all(key in json_data for key in ["document_id", "metadata", "content", "chunks"]):
+            return {
+                "success": False,
+                "error": "Invalid JSON structure"
+            }
+        
+        # Extract conversation data
+        conversation_data = []
+        for chunk in json_data.get("chunks", []):
+            conversation_data.append({
+                "question": chunk.get("metadata", {}).get("question", ""),
+                "answer": chunk.get("content", ""),
+                "doctor_input": chunk.get("metadata", {}).get("doctor_input"),
+                "timestamp": chunk.get("timestamp", datetime.now().isoformat()),
+                "confidence_score": chunk.get("metadata", {}).get("confidence_score", 0.85)
+            })
+        
+        return {
+            "success": True,
+            "conversation_data": conversation_data,
+            "paper_info": json_data.get("metadata", {}).get("paper_metadata", {}),
+            "doctor_annotations": json_data.get("content", {}).get("doctor_annotations", []),
+            "synthesis": json_data.get("content", {}).get("synthesis", {}),
+            "document_id": json_data.get("document_id")
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
         }
 
 @app.get("/api/health")

@@ -5,17 +5,20 @@ import ChatInterface from './components/ChatInterface';
 import ApiKeyInput from './components/ApiKeyInput';
 import PDFUpload from './components/PDFUpload';
 import PDFChatInterface from './components/PDFChatInterface';
+import MedicalAnalysisInterface from './components/MedicalAnalysisInterface';
+import JSONImportInterface from './components/JSONImportInterface';
 
 export default function Home() {
   const [apiKey, setApiKey] = useState('');
   const [isApiKeySet, setIsApiKeySet] = useState(false);
-  const [activeMode, setActiveMode] = useState<'chat' | 'pdf'>('chat');
+  const [activeMode, setActiveMode] = useState<'chat' | 'pdf' | 'medical'>('chat');
   const [pdfInfo, setPdfInfo] = useState<{
     filename: string;
     chunks_count: number;
     total_characters: number;
   } | null>(null);
   const [uploadError, setUploadError] = useState('');
+  const [importedData, setImportedData] = useState<any>(null);
 
   const handleApiKeySubmit = (key: string) => {
     setApiKey(key);
@@ -41,6 +44,16 @@ export default function Home() {
   };
 
   const handlePDFUploadError = (error: string) => {
+    setUploadError(error);
+  };
+
+  const handleJSONImportSuccess = (data: any) => {
+    setImportedData(data);
+    setActiveMode('medical');
+    setUploadError('');
+  };
+
+  const handleJSONImportError = (error: string) => {
     setUploadError(error);
   };
 
@@ -95,6 +108,16 @@ export default function Home() {
                 >
                   📄 PDF Chat
                 </button>
+                <button
+                  onClick={() => setActiveMode('medical')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    activeMode === 'medical'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  🏥 Medical Analysis
+                </button>
               </div>
 
                       {activeMode === 'chat' && <ChatInterface apiKey={apiKey} />}
@@ -136,6 +159,72 @@ export default function Home() {
                                 </div>
                               </div>
                               <PDFChatInterface apiKey={apiKey} pdfInfo={pdfInfo} />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                      {activeMode === 'medical' && (
+                        <div className="space-y-4">
+                          {!pdfInfo && !importedData ? (
+                            <div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                  <h3 className="text-lg font-medium text-gray-800 mb-2">📄 Upload Medical Literature</h3>
+                                  <PDFUpload
+                                    onUploadSuccess={handlePDFUploadSuccess}
+                                    onUploadError={handlePDFUploadError}
+                                    apiKey={apiKey}
+                                  />
+                                </div>
+                                <div>
+                                  <h3 className="text-lg font-medium text-gray-800 mb-2">📥 Import Previous Analysis</h3>
+                                  <JSONImportInterface
+                                    onImportSuccess={handleJSONImportSuccess}
+                                    onImportError={handleJSONImportError}
+                                  />
+                                </div>
+                              </div>
+                              {uploadError && (
+                                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                                  <p className="text-red-700 text-sm">❌ {uploadError}</p>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <h3 className="font-medium text-red-800">🏥 Medical Analysis Ready</h3>
+                                    <p className="text-sm text-red-600">
+                                      {pdfInfo ? `${pdfInfo.filename} • ${pdfInfo.chunks_count} sections` : 
+                                       importedData ? `Imported: ${importedData.filename}` : 'Analysis loaded'}
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      setPdfInfo(null);
+                                      setImportedData(null);
+                                      setUploadError('');
+                                    }}
+                                    className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
+                                  >
+                                    Start New Analysis
+                                  </button>
+                                </div>
+                              </div>
+                              <MedicalAnalysisInterface 
+                                apiKey={apiKey} 
+                                pdfInfo={pdfInfo || {
+                                  filename: importedData?.filename || 'Imported Analysis',
+                                  chunks_count: importedData?.data?.paper_info?.chunks_count || 0,
+                                  total_characters: importedData?.data?.paper_info?.total_characters || 0
+                                }}
+                              />
                             </div>
                           )}
                         </div>
