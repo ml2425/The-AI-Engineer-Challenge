@@ -1,0 +1,59 @@
+[33m817f9df[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/chat-implementation[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m Update FAQandCommonIssues.md
+[33m1411f3a[m Create FAQandCommonIssues.md
+[33m801576c[m Merge pull request #9 from BQ31X/git-docs-pr
+[33m70ad336[m Update README.md
+[33m513ac43[m docs (readme): rephrase setup guide intro per reviewer feedback
+[33med75977[m docs: add Git setup guide and update README with link to it
+[33mb3c6757[m Update README.md
+[33mfdeb5a4[m Revamped AI Engineering Challenge
+[33m45c1c49[m Revamped AI Engineering Challenge
+[33mf41b940[m Revamped AI Engineering Challenge
+[33m716962a[m Revamped AI Engineering Challenge
+[33m6a3fe7d[m Revamped AI Engineering Challenge
+[33m4930060[m Updating Version
+[33m7cba538[m Updating Version
+[33m3d74dfd[m Update Chainlit Version
+[33md2febb0[m Space Commit
+[33m9f98d36[m Space Commit
+[33mdea017d[m initial commit
+[33m53c31f4[m Replace conda references with uv
+[33m87af07e[m Merge pull request #5 from kenrogers/add-pydantic
+[33m77abe68[m Add pydantic version to requirements
+[33m945be61[m Added port
+[33mc048b05[m Resolving Merge Conflict
+[33m81b8998[m initial commit
+[33mb9aa9b9[m Resolve Merge Conflict
+[33me22e616[m initial commit
+[33m04b63d9[m Fixing README.md
+[33maa97e55[m Adding Content
+[33m38def0b[m initial commit
+[33m7cc3907[m Updating App and Requirements
+[33m8c18b31[m Updating Chainlit Message Reference
+[33m42ebcde[m Update app.py
+[33m5804ba6[m Update README.md
+[33m746142a[m Update README.md
+[33mf1ab659[m Update README.md
+[33m7e94dfe[m Create chainlit.md
+[33mcabe14c[m Update README.md
+[33m014336b[m Update app.py
+[33m40135fa[m Update app.py
+[33m9113fd3[m Update README.md
+[33m197e9c5[m Update README.md
+[33m8ecca5d[m Update README.md
+[33m2cec8e7[m Update README.md
+[33m4689b8a[m Update README.md
+[33m6b68216[m Update app.py
+[33m00ed004[m Update app.py
+[33m2902395[m Update README.md
+[33m7b8984d[m Update README.md
+[33m3f6c270[m Update README.md
+[33m654582d[m Update README.md
+[33m14d1c28[m Update README.md
+[33m8162023[m Update README.md
+[33m1eeb88b[m Update README.md
+[33m5125c41[m Merge branch 'main' of https://github.com/AI-Maker-Space/Beyond-ChatGPT
+[33m857b9b1[m added requirements
+[33m8377e05[m Update README.md
+[33mb889632[m added Dockerfile
+[33m2f6ea1f[m Add core files
+[33m1f87be8[m Initial commit
