@@ -1,5 +1,5 @@
 # Import required FastAPI components for building the API
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 # Import Pydantic for data validation and settings management
@@ -7,7 +7,10 @@ from pydantic import BaseModel
 # Import OpenAI client for interacting with OpenAI's API
 from openai import OpenAI
 import os
+import tempfile
+import asyncio
 from typing import Optional
+from pdf_service import rag_pipeline
 
 # Initialize FastAPI application with a title
 app = FastAPI(title="OpenAI Chat API")
@@ -28,6 +31,10 @@ class ChatRequest(BaseModel):
     developer_message: str  # Message from the developer/system
     user_message: str      # Message from the user
     model: Optional[str] = "gpt-4.1-mini"  # Optional model selection with default
+    api_key: str          # OpenAI API key for authentication
+
+class PDFQueryRequest(BaseModel):
+    question: str         # User's question about the PDF
     api_key: str          # OpenAI API key for authentication
 
 # Define the main chat endpoint that handles POST requests
@@ -59,6 +66,81 @@ async def chat(request: ChatRequest):
     
     except Exception as e:
         # Handle any errors that occur during processing
+        raise HTTPException(status_code=500, detail=str(e))
+
+# PDF Upload endpoint for RAG pipeline
+@app.post("/api/upload-pdf")
+async def upload_pdf(file: UploadFile = File(...), api_key: str = Form(...)):
+    """
+    Upload and process PDF file for RAG pipeline
+    """
+    try:
+        # Validate file type
+        if not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+        
+        # Set OpenAI API key
+        os.environ["OPENAI_API_KEY"] = api_key
+        
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
+            content = await file.read()
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+        
+        try:
+            # Process PDF with RAG pipeline
+            result = await rag_pipeline.build_vector_database(temp_file_path)
+            
+            if result["success"]:
+                return {
+                    "success": True,
+                    "message": result["message"],
+                    "filename": file.filename,
+                    "chunks_count": result["chunks_count"],
+                    "total_characters": result["total_characters"]
+                }
+            else:
+                raise HTTPException(status_code=500, detail=result["message"])
+                
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# PDF Query endpoint for RAG pipeline
+@app.post("/api/query-pdf")
+async def query_pdf(request: PDFQueryRequest):
+    """
+    Query the uploaded PDF using RAG pipeline
+    """
+    try:
+        # Set OpenAI API key
+        os.environ["OPENAI_API_KEY"] = request.api_key
+        
+        # Query the PDF
+        result = await rag_pipeline.query_pdf(request.question)
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "answer": result["answer"],
+                "context_count": result["context_count"],
+                "sources": result["sources"],
+                "question": result["question"]
+            }
+        else:
+            return {
+                "success": False,
+                "answer": result["answer"],
+                "context_count": result["context_count"],
+                "sources": result["sources"]
+            }
+    
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # Define a health check endpoint to verify API status
