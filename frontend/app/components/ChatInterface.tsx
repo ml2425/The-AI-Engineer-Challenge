@@ -58,7 +58,7 @@ export default function ChatInterface({ apiKey }: ChatInterfaceProps) {
         body: JSON.stringify({
           developer_message: "You are a helpful AI assistant. Provide clear, accurate, and helpful responses to user questions.",
           user_message: userMessage.content,
-          model: "gpt-4.1-mini",
+          model: "gpt-4o-mini",
           api_key: apiKey
         }),
       });
