@@ -62,6 +62,7 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
   const [clinicalConfidence, setClinicalConfidence] = useState<number>(0.85);
   const [currentBranch, setCurrentBranch] = useState<string>('main');
   const [branchingPaths, setBranchingPaths] = useState<{[key: string]: string}>({});
+  const [showDebugInfo, setShowDebugInfo] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -253,29 +254,79 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
   };
 
   const parseCollaborativeAnalysis = (response: string) => {
-    // Parse AI response to extract collaborative analysis components
-    const lines = response.split('\n');
+    // Enhanced parsing with semantic analysis
+    const responseLower = response.toLowerCase();
     let agreement: 'agrees' | 'disagrees' | 'partial' | 'unclear' = 'unclear';
     let confidenceChange = 0;
     let followUpQuestions: string[] = [];
     let analysisResponse = response;
 
-    // Look for agreement indicators
-    if (response.toLowerCase().includes('agrees') || response.toLowerCase().includes('consistent')) {
+    // Enhanced agreement detection with strength indicators
+    const agreementPatterns = {
+      strong_agreement: [
+        'strongly agrees', 'fully supports', 'completely consistent', 
+        'highly corroborates', 'definitively supports', 'clearly indicates'
+      ],
+      moderate_agreement: [
+        'agrees', 'supports', 'consistent', 'corroborates', 'indicates',
+        'moderately strong', 'somewhat supports', 'partially consistent'
+      ],
+      partial_agreement: [
+        'partial', 'somewhat', 'mixed', 'limited support', 'inconclusive',
+        'moderate evidence', 'some evidence', 'weakly supports'
+      ],
+      disagreement: [
+        'disagrees', 'contradicts', 'inconsistent', 'refutes', 'challenges',
+        'not supported', 'lacks evidence', 'conflicting'
+      ]
+    };
+
+    // Check for strong agreement
+    if (agreementPatterns.strong_agreement.some(pattern => responseLower.includes(pattern))) {
       agreement = 'agrees';
-      confidenceChange = 0.1;
-    } else if (response.toLowerCase().includes('disagrees') || response.toLowerCase().includes('contradicts')) {
-      agreement = 'disagrees';
-      confidenceChange = -0.2;
-    } else if (response.toLowerCase().includes('partial') || response.toLowerCase().includes('somewhat')) {
+      confidenceChange = 0.15; // +15% for strong agreement
+    }
+    // Check for moderate agreement
+    else if (agreementPatterns.moderate_agreement.some(pattern => responseLower.includes(pattern))) {
+      agreement = 'agrees';
+      confidenceChange = 0.08; // +8% for moderate agreement
+    }
+    // Check for partial agreement
+    else if (agreementPatterns.partial_agreement.some(pattern => responseLower.includes(pattern))) {
       agreement = 'partial';
-      confidenceChange = 0.05;
+      confidenceChange = 0.03; // +3% for partial agreement
+    }
+    // Check for disagreement
+    else if (agreementPatterns.disagreement.some(pattern => responseLower.includes(pattern))) {
+      agreement = 'disagrees';
+      confidenceChange = -0.12; // -12% for disagreement
     }
 
-    // Look for confidence change indicators
+    // Look for explicit confidence change indicators
     const confidenceMatch = response.match(/confidence.*?([+-]?\d+\.?\d*)/i);
     if (confidenceMatch) {
-      confidenceChange = parseFloat(confidenceMatch[1]) / 100; // Convert percentage to decimal
+      const explicitChange = parseFloat(confidenceMatch[1]) / 100;
+      // Use explicit change if it's more significant than heuristic
+      if (Math.abs(explicitChange) > Math.abs(confidenceChange)) {
+        confidenceChange = explicitChange;
+      }
+    }
+
+    // Look for evidence strength indicators
+    const evidenceStrength = {
+      'strong evidence': 0.12,
+      'moderate evidence': 0.06,
+      'weak evidence': 0.02,
+      'limited evidence': 0.01,
+      'insufficient evidence': -0.05,
+      'conflicting evidence': -0.08
+    };
+
+    for (const [strength, change] of Object.entries(evidenceStrength)) {
+      if (responseLower.includes(strength)) {
+        confidenceChange = change;
+        break;
+      }
     }
 
     // Look for follow-up questions
@@ -284,9 +335,25 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
       followUpQuestions = questionMatches.map(q => q.replace(/^\d+\.\s*/, '').trim());
     }
 
+    // Look for clinical recommendation strength
+    const clinicalStrength = {
+      'strongly recommend': 0.1,
+      'recommend': 0.05,
+      'consider': 0.02,
+      'not recommended': -0.08,
+      'contraindicated': -0.15
+    };
+
+    for (const [strength, change] of Object.entries(clinicalStrength)) {
+      if (responseLower.includes(strength)) {
+        confidenceChange += change;
+        break;
+      }
+    }
+
     return {
       agreement,
-      confidenceChange,
+      confidenceChange: Math.max(-0.3, Math.min(0.3, confidenceChange)), // Cap at ±30%
       followUpQuestions,
       response: analysisResponse
     };
@@ -436,6 +503,12 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
                   </span>
                 </div>
               )}
+              <button
+                onClick={() => setShowDebugInfo(!showDebugInfo)}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                {showDebugInfo ? 'Hide' : 'Show'} Debug Info
+              </button>
             </div>
           </div>
           <div className="flex space-x-2">
@@ -454,6 +527,30 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
           </div>
         </div>
       </div>
+
+      {/* Debug Info Panel */}
+      {showDebugInfo && (
+        <div className="bg-gray-100 border-b border-gray-200 p-4">
+          <h3 className="text-sm font-medium text-gray-800 mb-2">🔍 Confidence Calculation Debug</h3>
+          <div className="text-xs text-gray-600 space-y-1">
+            <div><strong>Current Confidence:</strong> {Math.round(clinicalConfidence * 100)}%</div>
+            <div><strong>Current Branch:</strong> {currentBranch}</div>
+            <div><strong>Branching Paths:</strong> {Object.keys(branchingPaths).length}</div>
+            <div><strong>Algorithm:</strong> Enhanced semantic analysis with evidence strength detection</div>
+            <div><strong>Confidence Range:</strong> 10% - 95% (capped at ±30% change per input)</div>
+            <div className="mt-2">
+              <strong>Key Patterns Detected:</strong>
+              <ul className="ml-4 list-disc">
+                <li>Strong agreement: +15% (strongly agrees, fully supports)</li>
+                <li>Moderate agreement: +8% (agrees, supports, moderately strong)</li>
+                <li>Partial agreement: +3% (partial, somewhat, limited support)</li>
+                <li>Disagreement: -12% (disagrees, contradicts, not supported)</li>
+                <li>Evidence strength: strong (+12%), moderate (+6%), weak (+2%)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Doctor Input Form */}
       {showDoctorInput && (
