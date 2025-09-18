@@ -10,7 +10,7 @@ import os
 import tempfile
 import asyncio
 from typing import Optional
-from pdf_service import rag_pipeline
+from pdf_service import RAGPipeline
 
 # Initialize FastAPI application with a title
 app = FastAPI(title="OpenAI Chat API")
@@ -83,8 +83,8 @@ async def upload_pdf(file: UploadFile = File(...), api_key: str = Form(...)):
         if not file.filename.lower().endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are allowed")
         
-        # Set OpenAI API key
-        os.environ["OPENAI_API_KEY"] = api_key
+        # Create request-scoped RAG pipeline instance with API key
+        rag_pipeline = RAGPipeline(api_key=api_key)
         
         # Save uploaded file temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
@@ -122,8 +122,8 @@ async def query_pdf(request: PDFQueryRequest):
     Query the uploaded PDF using RAG pipeline
     """
     try:
-        # Set OpenAI API key
-        os.environ["OPENAI_API_KEY"] = request.api_key
+        # Create request-scoped RAG pipeline instance with API key
+        rag_pipeline = RAGPipeline(api_key=request.api_key)
         
         # Query the PDF
         result = await rag_pipeline.query_pdf(request.question)

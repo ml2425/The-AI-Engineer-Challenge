@@ -68,13 +68,18 @@ class PDFProcessor:
 class RAGPipeline:
     """Complete RAG Pipeline for PDF-based question answering"""
     
-    def __init__(self):
+    def __init__(self, api_key: str = None):
         self.pdf_processor = PDFProcessor()
         self.vector_db = None
+        self.api_key = api_key
         self.llm = None  # Will be initialized when API key is provided
         self.rag_system_prompt = None
         self.rag_user_prompt = None
         self._setup_prompts()
+        
+        # Initialize LLM if API key is provided
+        if self.api_key:
+            self.llm = ChatOpenAI(api_key=self.api_key)
     
     def _setup_prompts(self):
         """Setup RAG-specific prompts"""
@@ -159,9 +164,16 @@ Please provide your answer based solely on the PDF context above."""
             }
         
         try:
-            # Initialize LLM if not already done (API key should be set in environment)
-            if self.llm is None:
-                self.llm = ChatOpenAI()
+            # Ensure LLM is initialized with API key
+            if self.llm is None and self.api_key:
+                self.llm = ChatOpenAI(api_key=self.api_key)
+            elif self.llm is None:
+                return {
+                    "success": False,
+                    "answer": "No API key provided for LLM initialization.",
+                    "context_count": 0,
+                    "sources": []
+                }
             
             # Retrieve relevant contexts
             context_list = self.vector_db.search_by_text(question, k=k)
@@ -214,5 +226,4 @@ Please provide your answer based solely on the PDF context above."""
             }
 
 
-# Global RAG pipeline instance
-rag_pipeline = RAGPipeline()
+# No global instance - create request-scoped instances for concurrency safety
