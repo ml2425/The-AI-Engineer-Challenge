@@ -1,5 +1,6 @@
 # Import required FastAPI components for building the API
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 # Import Pydantic for data validation and settings management
 from pydantic import BaseModel
@@ -47,30 +48,29 @@ async def chat(request: ChatRequest):
         # Initialize OpenAI client with the provided API key
         client = OpenAI(api_key=request.api_key)
         
-        # Create messages for the chat completion
-        messages = [
-            {"role": "system", "content": request.developer_message},
-            {"role": "user", "content": request.user_message}
-        ]
-        
-        # Create a non-streaming chat completion request
-        response = client.chat.completions.create(
-            model=request.model,
-            messages=messages
-        )
-        
-        # Return JSON response instead of streaming
-        return {
-            "success": True,
-            "response": response.choices[0].message.content
-        }
+        # Create an async generator function for streaming responses
+        async def generate():
+            # Create a streaming chat completion request
+            stream = client.chat.completions.create(
+                model=request.model,
+                messages=[
+                    {"role": "system", "content": request.developer_message},
+                    {"role": "user", "content": request.user_message}
+                ],
+                stream=True  # Enable streaming response
+            )
+            
+            # Yield each chunk of the response as it becomes available
+            for chunk in stream:
+                if chunk.choices[0].delta.content is not None:
+                    yield chunk.choices[0].delta.content
+
+        # Return a streaming response to the client
+        return StreamingResponse(generate(), media_type="text/plain")
     
     except Exception as e:
         # Handle any errors that occur during processing
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        raise HTTPException(status_code=500, detail=str(e))
 
 # PDF Upload endpoint for RAG pipeline
 @app.post("/api/upload-pdf")
@@ -151,6 +151,10 @@ async def query_pdf(request: PDFQueryRequest):
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok"}
+
+# Vercel handler for serverless deployment
+def handler(request):
+    return app(request.scope, request.receive, request.send)
 
 # Entry point for running the application directly
 if __name__ == "__main__":
