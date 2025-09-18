@@ -67,39 +67,23 @@ export default function ChatInterface({ apiKey }: ChatInterfaceProps) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No response body');
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to get response');
       }
 
-      let assistantMessage = '';
       const assistantMessageId = (Date.now() + 1).toString();
       
-      // Add initial assistant message
-      const initialAssistantMessage: ChatMessage = {
+      // Add assistant message
+      const assistantMessage: ChatMessage = {
         id: assistantMessageId,
         role: 'assistant',
-        content: '',
+        content: data.response,
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, initialAssistantMessage]);
-
-      // Stream the response
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = new TextDecoder().decode(value);
-        assistantMessage += chunk;
-
-        // Update the assistant message with new content
-        setMessages(prev => prev.map(msg => 
-          msg.id === assistantMessageId 
-            ? { ...msg, content: assistantMessage }
-            : msg
-        ));
-      }
+      setMessages(prev => [...prev, assistantMessage]);
 
     } catch (error) {
       console.error('Error sending message:', error);

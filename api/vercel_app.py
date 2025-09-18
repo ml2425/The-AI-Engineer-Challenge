@@ -9,11 +9,9 @@ from pydantic import BaseModel
 from openai import OpenAI
 import os
 import tempfile
-import asyncio
 from typing import Optional, Dict, Any
 import PyPDF2
 import numpy as np
-from openai import OpenAI
 import json
 import uuid
 from datetime import datetime
@@ -132,19 +130,19 @@ async def chat(request: ChatRequest):
         
         response = client.chat.completions.create(
             model=request.model,
-            messages=messages,
-            stream=True
+            messages=messages
         )
         
-        def generate():
-            for chunk in response:
-                if chunk.choices[0].delta.content:
-                    yield chunk.choices[0].delta.content
-        
-        return StreamingResponse(generate(), media_type="text/plain")
+        return {
+            "success": True,
+            "response": response.choices[0].message.content
+        }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 @app.post("/api/upload-pdf")
 async def upload_pdf(file: UploadFile = File(...), api_key: str = Form(...)):
