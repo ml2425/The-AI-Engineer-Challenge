@@ -17,11 +17,15 @@ interface ChatMessage {
   role: 'user' | 'assistant' | 'doctor';
   content: string;
   timestamp: Date;
-  source?: 'paper' | 'doctor_input' | 'ai_analysis';
+  source?: 'paper' | 'doctor_input' | 'ai_analysis' | 'collaborative_analysis';
   metadata?: {
     doctor_name?: string;
     specialty?: string;
     confidence_score?: number;
+    clinical_agreement?: 'agrees' | 'disagrees' | 'partial' | 'unclear';
+    confidence_change?: number;
+    branching_path?: string;
+    follow_up_questions?: string[];
   };
 }
 
@@ -55,6 +59,9 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
   });
   const [showDoctorInput, setShowDoctorInput] = useState(false);
   const [exportedConversations, setExportedConversations] = useState<any[]>([]);
+  const [clinicalConfidence, setClinicalConfidence] = useState<number>(0.85);
+  const [currentBranch, setCurrentBranch] = useState<string>('main');
+  const [branchingPaths, setBranchingPaths] = useState<{[key: string]: string}>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -148,6 +155,10 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
     };
 
     setMessages(prev => [...prev, doctorMessage]);
+    
+    // Trigger collaborative analysis
+    await performCollaborativeAnalysis(doctorInput.content, doctorInput.name, doctorInput.specialty);
+    
     setDoctorInput({
       name: '',
       specialty: '',
@@ -156,6 +167,129 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
       timestamp: new Date()
     });
     setShowDoctorInput(false);
+  };
+
+  const performCollaborativeAnalysis = async (doctorInput: string, doctorName: string, specialty: string) => {
+    setIsLoading(true);
+    
+    try {
+      // Use PDF query if we have PDF info, otherwise use general medical analysis
+      const endpoint = pdfInfo ? '/api/query-pdf' : '/api/medical-analysis';
+      const requestBody = pdfInfo 
+        ? {
+            question: `Doctor Input Analysis: Dr. ${doctorName} (${specialty}) says: "${doctorInput}". Please analyze this input against the medical literature and provide collaborative analysis including agreement level, confidence changes, and follow-up questions.`,
+            api_key: apiKey
+          }
+        : {
+            question: `Doctor Input Analysis: Dr. ${doctorName} (${specialty}) says: "${doctorInput}". Please provide collaborative analysis including agreement level, confidence changes, and follow-up questions.`,
+            api_key: apiKey,
+            context_type: 'medical_literature',
+            include_clinical_implications: true
+          };
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const result = await response.json();
+      
+      // Parse the collaborative analysis response
+      const analysis = parseCollaborativeAnalysis(result.answer || '');
+      
+      // Update clinical confidence based on analysis
+      const newConfidence = Math.max(0.1, Math.min(0.95, clinicalConfidence + analysis.confidenceChange));
+      setClinicalConfidence(newConfidence);
+      
+      // Create branching path if confidence change is significant
+      let branchPath = currentBranch;
+      if (Math.abs(analysis.confidenceChange) > 0.2) {
+        const branchId = `branch_${Date.now()}`;
+        const branchName = analysis.agreement === 'disagrees' ? 
+          `Alternative_${specialty}_Approach` : 
+          `Enhanced_${specialty}_Approach`;
+        
+        setBranchingPaths(prev => ({
+          ...prev,
+          [branchId]: branchName
+        }));
+        setCurrentBranch(branchId);
+        branchPath = branchId;
+      }
+
+      const collaborativeMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: analysis.response,
+        timestamp: new Date(),
+        source: 'collaborative_analysis',
+        metadata: {
+          confidence_score: newConfidence,
+          clinical_agreement: analysis.agreement,
+          confidence_change: analysis.confidenceChange,
+          branching_path: branchPath,
+          follow_up_questions: analysis.followUpQuestions
+        }
+      };
+
+      setMessages(prev => [...prev, collaborativeMessage]);
+      
+    } catch (error) {
+      console.error('Collaborative analysis error:', error);
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `Sorry, I encountered an error in collaborative analysis: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
+        timestamp: new Date(),
+        source: 'ai_analysis'
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const parseCollaborativeAnalysis = (response: string) => {
+    // Parse AI response to extract collaborative analysis components
+    const lines = response.split('\n');
+    let agreement: 'agrees' | 'disagrees' | 'partial' | 'unclear' = 'unclear';
+    let confidenceChange = 0;
+    let followUpQuestions: string[] = [];
+    let analysisResponse = response;
+
+    // Look for agreement indicators
+    if (response.toLowerCase().includes('agrees') || response.toLowerCase().includes('consistent')) {
+      agreement = 'agrees';
+      confidenceChange = 0.1;
+    } else if (response.toLowerCase().includes('disagrees') || response.toLowerCase().includes('contradicts')) {
+      agreement = 'disagrees';
+      confidenceChange = -0.2;
+    } else if (response.toLowerCase().includes('partial') || response.toLowerCase().includes('somewhat')) {
+      agreement = 'partial';
+      confidenceChange = 0.05;
+    }
+
+    // Look for confidence change indicators
+    const confidenceMatch = response.match(/confidence.*?([+-]?\d+\.?\d*)/i);
+    if (confidenceMatch) {
+      confidenceChange = parseFloat(confidenceMatch[1]) / 100; // Convert percentage to decimal
+    }
+
+    // Look for follow-up questions
+    const questionMatches = response.match(/\d+\.\s*([^?]*\?)/g);
+    if (questionMatches) {
+      followUpQuestions = questionMatches.map(q => q.replace(/^\d+\.\s*/, '').trim());
+    }
+
+    return {
+      agreement,
+      confidenceChange,
+      followUpQuestions,
+      response: analysisResponse
+    };
   };
 
   const exportConversationToJSON = () => {
@@ -201,7 +335,26 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
             messages
               .filter(m => m.role === 'doctor')
               .map(m => m.metadata?.doctor_name)
-          ).size
+          ).size,
+          clinical_confidence: clinicalConfidence,
+          current_branch: currentBranch,
+          branching_paths: branchingPaths,
+          collaborative_analysis: {
+            total_doctor_inputs: messages.filter(m => m.role === 'doctor').length,
+            agreement_summary: {
+              agrees: messages.filter(m => m.metadata?.clinical_agreement === 'agrees').length,
+              disagrees: messages.filter(m => m.metadata?.clinical_agreement === 'disagrees').length,
+              partial: messages.filter(m => m.metadata?.clinical_agreement === 'partial').length,
+              unclear: messages.filter(m => m.metadata?.clinical_agreement === 'unclear').length
+            },
+            confidence_changes: messages
+              .filter(m => m.metadata?.confidence_change)
+              .map(m => ({
+                timestamp: m.timestamp,
+                change: m.metadata?.confidence_change,
+                doctor: m.metadata?.doctor_name
+              }))
+          }
         }
       },
       chunks: messages.map((message, index) => ({
@@ -257,6 +410,33 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
             <p className="text-sm text-green-600">
               Analyzing: {pdfInfo.filename} • {pdfInfo.chunks_count} sections processed
             </p>
+            <div className="flex items-center space-x-4 mt-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-600">Clinical Confidence:</span>
+                <div className="flex items-center space-x-1">
+                  <div className="w-16 h-2 bg-gray-200 rounded-full">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        clinicalConfidence > 0.7 ? 'bg-green-500' : 
+                        clinicalConfidence > 0.4 ? 'bg-yellow-500' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${clinicalConfidence * 100}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-xs font-medium text-gray-700">
+                    {Math.round(clinicalConfidence * 100)}%
+                  </span>
+                </div>
+              </div>
+              {currentBranch !== 'main' && (
+                <div className="flex items-center space-x-1">
+                  <span className="text-xs text-gray-600">Branch:</span>
+                  <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                    {branchingPaths[currentBranch] || currentBranch}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex space-x-2">
             <button
@@ -344,10 +524,45 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
                 }] : undefined}
               />
               {message.metadata && (
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-gray-500 mt-1 space-y-1">
                   {message.metadata.doctor_name && `Dr. ${message.metadata.doctor_name}`}
                   {message.metadata.specialty && ` (${message.metadata.specialty})`}
                   {message.metadata.confidence_score && ` • Confidence: ${(message.metadata.confidence_score * 100).toFixed(1)}%`}
+                  
+                  {/* Collaborative Analysis Indicators */}
+                  {message.metadata.clinical_agreement && (
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        message.metadata.clinical_agreement === 'agrees' ? 'bg-green-100 text-green-800' :
+                        message.metadata.clinical_agreement === 'disagrees' ? 'bg-red-100 text-red-800' :
+                        message.metadata.clinical_agreement === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {message.metadata.clinical_agreement === 'agrees' ? '✅ Agrees' :
+                         message.metadata.clinical_agreement === 'disagrees' ? '❌ Disagrees' :
+                         message.metadata.clinical_agreement === 'partial' ? '⚠️ Partial' : '❓ Unclear'}
+                      </span>
+                      {message.metadata.confidence_change && (
+                        <span className={`text-xs ${
+                          message.metadata.confidence_change > 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {message.metadata.confidence_change > 0 ? '+' : ''}{(message.metadata.confidence_change * 100).toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Follow-up Questions */}
+                  {message.metadata.follow_up_questions && message.metadata.follow_up_questions.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs font-medium text-blue-700 mb-1">Follow-up Questions:</div>
+                      {message.metadata.follow_up_questions.slice(0, 2).map((question, idx) => (
+                        <div key={idx} className="text-xs text-blue-600 bg-blue-50 p-2 rounded mb-1">
+                          {question}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
