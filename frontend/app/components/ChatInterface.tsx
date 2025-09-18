@@ -70,6 +70,7 @@ export default function ChatInterface({ apiKey }: ChatInterfaceProps) {
       const data = await response.json();
       
       if (!data.success) {
+        console.error('Chat API Error:', data);
         throw new Error(data.error || 'Failed to get response');
       }
 
@@ -91,7 +92,7 @@ export default function ChatInterface({ apiKey }: ChatInterfaceProps) {
       const errorMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please check your API key and try again.',
+        content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please check your API key and try again.`,
         timestamp: new Date()
       };
       

@@ -121,6 +121,9 @@ async def search_similar_chunks(query: str, api_key: str, k: int = 4) -> list:
 async def chat(request: ChatRequest):
     """General chat endpoint"""
     try:
+        # Debug logging
+        print(f"Chat request received - Model: {request.model}, API Key: {request.api_key[:10]}...")
+        
         client = OpenAI(api_key=request.api_key)
         
         messages = [
@@ -128,20 +131,28 @@ async def chat(request: ChatRequest):
             {"role": "user", "content": request.user_message}
         ]
         
+        print(f"Sending request to OpenAI with model: {request.model}")
         response = client.chat.completions.create(
             model=request.model,
             messages=messages
         )
         
+        print("OpenAI response received successfully")
         return {
             "success": True,
             "response": response.choices[0].message.content
         }
         
     except Exception as e:
+        print(f"Error in chat endpoint: {str(e)}")
         return {
             "success": False,
-            "error": str(e)
+            "error": str(e),
+            "debug_info": {
+                "model": request.model,
+                "api_key_length": len(request.api_key) if request.api_key else 0,
+                "error_type": type(e).__name__
+            }
         }
 
 @app.post("/api/upload-pdf")
