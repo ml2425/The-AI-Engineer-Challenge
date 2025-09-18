@@ -26,6 +26,8 @@ interface ChatMessage {
     confidence_change?: number;
     branching_path?: string;
     follow_up_questions?: string[];
+    missingInformation?: string[];
+    confidenceGaps?: string[];
   };
 }
 
@@ -232,7 +234,9 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
           clinical_agreement: analysis.agreement,
           confidence_change: analysis.confidenceChange,
           branching_path: branchPath,
-          follow_up_questions: analysis.followUpQuestions
+          follow_up_questions: analysis.followUpQuestions,
+          missingInformation: analysis.missingInformation,
+          confidenceGaps: analysis.confidenceGaps
         }
       };
 
@@ -260,6 +264,8 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
     let confidenceChange = 0;
     let followUpQuestions: string[] = [];
     let analysisResponse = response;
+    let missingInformation: string[] = [];
+    let confidenceGaps: string[] = [];
 
     // Enhanced agreement detection with strength indicators
     const agreementPatterns = {
@@ -351,12 +357,152 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
       }
     }
 
+    // Enhanced semantic analysis for missing information and confidence gaps
+    if (agreement === 'disagrees' || agreement === 'partial' || agreement === 'unclear') {
+      const missingInfoAnalysis = analyzeMissingInformation(response, agreement);
+      missingInformation = missingInfoAnalysis.missingInfo;
+      confidenceGaps = missingInfoAnalysis.confidenceGaps;
+      
+      // Generate intelligent follow-up questions based on gaps
+      if (missingInformation.length > 0 || confidenceGaps.length > 0) {
+        followUpQuestions = generateIntelligentQuestions(missingInformation, confidenceGaps, agreement);
+      }
+    }
+
     return {
       agreement,
       confidenceChange: Math.max(-0.3, Math.min(0.3, confidenceChange)), // Cap at ±30%
       followUpQuestions,
+      missingInformation,
+      confidenceGaps,
       response: analysisResponse
     };
+  };
+
+  const analyzeMissingInformation = (response: string, agreement: string) => {
+    const responseLower = response.toLowerCase();
+    const missingInfo: string[] = [];
+    const confidenceGaps: string[] = [];
+
+    // Common missing information patterns
+    const missingInfoPatterns = {
+      'laboratory values': [
+        'lab values', 'laboratory data', 'blood work', 'lab results', 'biomarkers',
+        'hemoglobin', 'albumin', 'creatinine', 'glucose', 'electrolytes'
+      ],
+      'clinical measurements': [
+        'vital signs', 'blood pressure', 'heart rate', 'temperature', 'respiratory rate',
+        'gait speed', 'handgrip strength', 'walking speed', 'physical measurements'
+      ],
+      'patient history': [
+        'medical history', 'past medical history', 'family history', 'social history',
+        'medication history', 'allergy history', 'surgical history'
+      ],
+      'imaging studies': [
+        'imaging', 'x-ray', 'ct scan', 'mri', 'ultrasound', 'bone density',
+        'body composition', 'muscle mass', 'fat mass'
+      ],
+      'functional assessments': [
+        'functional status', 'activities of daily living', 'mobility', 'independence',
+        'cognitive function', 'mental status', 'quality of life'
+      ],
+      'nutritional assessment': [
+        'dietary intake', 'nutritional status', 'food intake', 'caloric intake',
+        'protein intake', 'micronutrients', 'vitamin levels'
+      ]
+    };
+
+    // Check for missing information categories
+    for (const [category, patterns] of Object.entries(missingInfoPatterns)) {
+      const hasCategory = patterns.some(pattern => responseLower.includes(pattern));
+      if (!hasCategory && agreement !== 'agrees') {
+        missingInfo.push(category);
+      }
+    }
+
+    // Confidence gap patterns
+    const confidenceGapPatterns = {
+      'insufficient sample size': ['small sample', 'limited participants', 'few patients', 'insufficient data'],
+      'methodological limitations': ['study design', 'methodology', 'bias', 'confounding', 'limitations'],
+      'temporal factors': ['follow-up', 'long-term', 'duration', 'time course', 'progression'],
+      'population specificity': ['specific population', 'demographics', 'age group', 'ethnicity', 'cohort'],
+      'outcome measures': ['outcome measures', 'endpoints', 'primary outcome', 'secondary outcome'],
+      'statistical power': ['statistical power', 'significance', 'p-value', 'confidence interval']
+    };
+
+    for (const [gap, patterns] of Object.entries(confidenceGapPatterns)) {
+      if (patterns.some(pattern => responseLower.includes(pattern))) {
+        confidenceGaps.push(gap);
+      }
+    }
+
+    return { missingInfo, confidenceGaps };
+  };
+
+  const generateIntelligentQuestions = (missingInfo: string[], confidenceGaps: string[], agreement: string) => {
+    const questions: string[] = [];
+
+    // Generate questions based on missing information
+    missingInfo.forEach(category => {
+      switch (category) {
+        case 'laboratory values':
+          questions.push("What specific laboratory values would help strengthen this assessment? (e.g., hemoglobin, albumin, inflammatory markers)");
+          break;
+        case 'clinical measurements':
+          questions.push("What additional clinical measurements would provide more confidence? (e.g., gait speed, handgrip strength, vital signs)");
+          break;
+        case 'patient history':
+          questions.push("What aspects of the patient's history are most relevant to this assessment?");
+          break;
+        case 'imaging studies':
+          questions.push("Would imaging studies help confirm or refute this assessment?");
+          break;
+        case 'functional assessments':
+          questions.push("What functional assessments would provide additional evidence?");
+          break;
+        case 'nutritional assessment':
+          questions.push("What nutritional parameters would strengthen this malnutrition assessment?");
+          break;
+      }
+    });
+
+    // Generate questions based on confidence gaps
+    confidenceGaps.forEach(gap => {
+      switch (gap) {
+        case 'insufficient sample size':
+          questions.push("How would a larger sample size affect the confidence in this assessment?");
+          break;
+        case 'methodological limitations':
+          questions.push("What methodological improvements would increase confidence?");
+          break;
+        case 'temporal factors':
+          questions.push("How would longer follow-up or different time points affect this assessment?");
+          break;
+        case 'population specificity':
+          questions.push("How applicable is this assessment to different patient populations?");
+          break;
+        case 'outcome measures':
+          questions.push("What additional outcome measures would strengthen this assessment?");
+          break;
+        case 'statistical power':
+          questions.push("What statistical considerations would improve confidence in this assessment?");
+          break;
+      }
+    });
+
+    // Add general guidance questions based on agreement level
+    if (agreement === 'disagrees') {
+      questions.push("What specific evidence would be needed to change this assessment?");
+      questions.push("Are there alternative interpretations of the current evidence?");
+    } else if (agreement === 'partial') {
+      questions.push("What additional information would help resolve the uncertainty?");
+      questions.push("Which aspects of the assessment are most and least certain?");
+    } else if (agreement === 'unclear') {
+      questions.push("What key information is missing to make a confident assessment?");
+      questions.push("What would be the most important next steps to clarify this assessment?");
+    }
+
+    return questions.slice(0, 5); // Limit to 5 most relevant questions
   };
 
   const exportConversationToJSON = () => {
@@ -649,11 +795,39 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
                     </div>
                   )}
                   
+                  {/* Missing Information */}
+                  {message.metadata.missingInformation && message.metadata.missingInformation.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs font-medium text-orange-700 mb-1">Missing Information:</div>
+                      <div className="flex flex-wrap gap-1">
+                        {message.metadata.missingInformation.map((info, idx) => (
+                          <span key={idx} className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
+                            {info}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Confidence Gaps */}
+                  {message.metadata.confidenceGaps && message.metadata.confidenceGaps.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs font-medium text-red-700 mb-1">Confidence Gaps:</div>
+                      <div className="flex flex-wrap gap-1">
+                        {message.metadata.confidenceGaps.map((gap, idx) => (
+                          <span key={idx} className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded">
+                            {gap}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Follow-up Questions */}
                   {message.metadata.follow_up_questions && message.metadata.follow_up_questions.length > 0 && (
                     <div className="mt-2">
-                      <div className="text-xs font-medium text-blue-700 mb-1">Follow-up Questions:</div>
-                      {message.metadata.follow_up_questions.slice(0, 2).map((question, idx) => (
+                      <div className="text-xs font-medium text-blue-700 mb-1">Intelligent Follow-up Questions:</div>
+                      {message.metadata.follow_up_questions.slice(0, 3).map((question, idx) => (
                         <div key={idx} className="text-xs text-blue-600 bg-blue-50 p-2 rounded mb-1">
                           {question}
                         </div>
