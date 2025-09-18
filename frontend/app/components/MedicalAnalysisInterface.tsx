@@ -81,17 +81,26 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/medical-analysis', {
+      // Use PDF query if we have PDF info, otherwise use general medical analysis
+      const endpoint = pdfInfo ? '/api/query-pdf' : '/api/medical-analysis';
+      const requestBody = pdfInfo 
+        ? {
+            question: inputMessage,
+            api_key: apiKey
+          }
+        : {
+            question: inputMessage,
+            api_key: apiKey,
+            context_type: 'medical_literature',
+            include_clinical_implications: true
+          };
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          question: inputMessage,
-          api_key: apiKey,
-          context_type: 'medical_literature',
-          include_clinical_implications: true
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const result = await response.json();
@@ -109,10 +118,11 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
 
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
+      console.error('Medical analysis error:', error);
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
         timestamp: new Date(),
         source: 'ai_analysis'
       };

@@ -39,7 +39,7 @@ export default function Home() {
       chunks_count: result.chunks_count,
       total_characters: result.total_characters
     });
-    setActiveMode('pdf');
+    // Don't change mode - keep current mode (medical analysis)
     setUploadError('');
   };
 
