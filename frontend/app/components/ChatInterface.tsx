@@ -50,6 +50,10 @@ export default function ChatInterface({ apiKey }: ChatInterfaceProps) {
     setIsLoading(true);
 
     try {
+      // Debug: Check API key being sent
+      console.log('Sending API key:', apiKey ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}` : 'EMPTY');
+      console.log('API key length:', apiKey ? apiKey.length : 0);
+      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {

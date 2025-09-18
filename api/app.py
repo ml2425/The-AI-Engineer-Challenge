@@ -40,6 +40,10 @@ class PDFQueryRequest(BaseModel):
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
     try:
+        # Debug: Check API key
+        print(f"API Key received: {request.api_key[:10]}...{request.api_key[-4:] if len(request.api_key) > 14 else 'SHORT'}")
+        print(f"API Key length: {len(request.api_key)}")
+        
         # Initialize OpenAI client with the provided API key
         client = OpenAI(api_key=request.api_key)
         
