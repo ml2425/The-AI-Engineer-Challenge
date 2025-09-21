@@ -68,21 +68,20 @@ class PDFProcessor:
 class RAGPipeline:
     """Complete RAG Pipeline for PDF-based question answering"""
     
-    def __init__(self, api_key: str = None):
+    def __init__(self):
         self.pdf_processor = PDFProcessor()
         self.vector_db = None
-        self.api_key = api_key
-        self.llm = None  # Will be initialized when API key is provided
+        self.llm = None  # Will be initialized when needed
         self.rag_system_prompt = None
         self.rag_user_prompt = None
         self._setup_prompts()
         
-        # Initialize LLM if API key is provided
-        if self.api_key:
-            # Set environment variable for aimakerspace classes
-            import os
-            os.environ["OPENAI_API_KEY"] = self.api_key
+        # Initialize LLM using environment variable
+        try:
             self.llm = ChatOpenAI()
+        except ValueError as e:
+            # API key not set in environment
+            self.llm = None
     
     def _setup_prompts(self):
         """Setup RAG-specific prompts"""
@@ -131,10 +130,6 @@ Please provide your answer based solely on the PDF context above."""
             # Build vector database using environment API key
             from aimakerspace.openai_utils.embedding import EmbeddingModel
             
-            # Set environment variable for aimakerspace classes
-            import os
-            os.environ["OPENAI_API_KEY"] = self.api_key
-            
             embedding_model = EmbeddingModel()
             self.vector_db = VectorDatabase(embedding_model=embedding_model)
             self.vector_db = await self.vector_db.abuild_from_list(text_chunks)
@@ -174,19 +169,17 @@ Please provide your answer based solely on the PDF context above."""
             }
         
         try:
-            # Ensure LLM is initialized with API key
-            if self.llm is None and self.api_key:
-                # Set environment variable for aimakerspace classes
-                import os
-                os.environ["OPENAI_API_KEY"] = self.api_key
-                self.llm = ChatOpenAI()
-            elif self.llm is None:
-                return {
-                    "success": False,
-                    "answer": "No API key provided for LLM initialization.",
-                    "context_count": 0,
-                    "sources": []
-                }
+            # Ensure LLM is initialized
+            if self.llm is None:
+                try:
+                    self.llm = ChatOpenAI()
+                except ValueError:
+                    return {
+                        "success": False,
+                        "answer": "OpenAI API key not configured in environment variables.",
+                        "context_count": 0,
+                        "sources": []
+                    }
             
             # Retrieve relevant contexts
             context_list = self.vector_db.search_by_text(question, k=k)

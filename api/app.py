@@ -11,6 +11,10 @@ import tempfile
 import asyncio
 from typing import Optional
 from pdf_service import RAGPipeline
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize FastAPI application with a title
 app = FastAPI(title="OpenAI Chat API")
@@ -85,13 +89,8 @@ async def upload_pdf(file: UploadFile = File(...)):
         if not file.filename.lower().endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are allowed")
         
-        # Get API key from environment variables
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise HTTPException(status_code=500, detail="OpenAI API key not configured")
-        
-        # Create request-scoped RAG pipeline instance with environment API key
-        rag_pipeline = RAGPipeline(api_key=api_key)
+        # Create request-scoped RAG pipeline instance (uses environment API key)
+        rag_pipeline = RAGPipeline()
         
         # Save uploaded file temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
@@ -105,7 +104,7 @@ async def upload_pdf(file: UploadFile = File(...)):
             
             if result["success"]:
                 # Store the processed PDF for future queries
-                processed_pdfs[api_key] = rag_pipeline
+                processed_pdfs["default"] = rag_pipeline
                 
                 return {
                     "success": True,
@@ -132,13 +131,8 @@ async def query_pdf(request: PDFQueryRequest):
     Query the uploaded PDF using RAG pipeline
     """
     try:
-        # Get API key from environment variables
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise HTTPException(status_code=500, detail="OpenAI API key not configured")
-        
-        # Check if PDF has been processed for this API key
-        if api_key not in processed_pdfs:
+        # Check if PDF has been processed (using a simple key since we only support one API key)
+        if "default" not in processed_pdfs:
             return {
                 "success": False,
                 "answer": "No PDF has been processed yet. Please upload a PDF first.",
@@ -147,7 +141,7 @@ async def query_pdf(request: PDFQueryRequest):
             }
         
         # Use the stored RAG pipeline instance
-        rag_pipeline = processed_pdfs[api_key]
+        rag_pipeline = processed_pdfs["default"]
         
         # Query the PDF
         result = await rag_pipeline.query_pdf(request.question)
