@@ -46,8 +46,14 @@ class PDFQueryRequest(BaseModel):
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
     try:
+        # Debug: Log available environment variables (for troubleshooting)
+        print(f"DEBUG: Available env vars: {list(os.environ.keys())}")
+        print(f"DEBUG: OPENAI_API_KEY exists: {'OPENAI_API_KEY' in os.environ}")
+        
         # Get API key from environment variables
         api_key = os.getenv("OPENAI_API_KEY")
+        print(f"DEBUG: API key length: {len(api_key) if api_key else 0}")
+        
         if not api_key:
             raise HTTPException(status_code=500, detail="OpenAI API key not configured")
         
@@ -85,6 +91,9 @@ async def upload_pdf(file: UploadFile = File(...)):
     Upload and process PDF file for RAG pipeline
     """
     try:
+        # Debug: Log environment variable status
+        print(f"DEBUG PDF Upload: OPENAI_API_KEY exists: {'OPENAI_API_KEY' in os.environ}")
+        
         # Validate file type
         if not file.filename.lower().endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are allowed")
@@ -166,6 +175,16 @@ async def query_pdf(request: PDFQueryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Define a health check endpoint to verify API status
+@app.get("/api/debug")
+async def debug_env():
+    """Debug endpoint to check environment variables"""
+    return {
+        "status": "debug",
+        "env_vars": list(os.environ.keys()),
+        "openai_key_exists": "OPENAI_API_KEY" in os.environ,
+        "openai_key_length": len(os.getenv("OPENAI_API_KEY", "")) if os.getenv("OPENAI_API_KEY") else 0
+    }
+
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok"}
