@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import Message from './Message';
 
 interface PDFChatInterfaceProps {
-  apiKey: string;
   pdfInfo: {
     filename: string;
     chunks_count: number;
@@ -24,7 +23,7 @@ interface ChatMessage {
   }>;
 }
 
-export default function PDFChatInterface({ apiKey, pdfInfo }: PDFChatInterfaceProps) {
+export default function PDFChatInterface({ pdfInfo }: PDFChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
@@ -66,8 +65,7 @@ export default function PDFChatInterface({ apiKey, pdfInfo }: PDFChatInterfacePr
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          question: userMessage.content,
-          api_key: apiKey
+          question: userMessage.content
         }),
       });
 

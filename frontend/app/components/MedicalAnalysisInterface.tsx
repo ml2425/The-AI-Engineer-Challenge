@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import Message from './Message';
 
 interface MedicalAnalysisInterfaceProps {
-  apiKey: string;
   pdfInfo: {
     filename: string;
     chunks_count: number;
@@ -39,7 +38,7 @@ interface DoctorInput {
   timestamp: Date;
 }
 
-export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAnalysisInterfaceProps) {
+export default function MedicalAnalysisInterface({ pdfInfo }: MedicalAnalysisInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
@@ -95,12 +94,10 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
       const endpoint = pdfInfo ? '/api/query-pdf' : '/api/medical-analysis';
       const requestBody = pdfInfo 
         ? {
-            question: inputMessage,
-            api_key: apiKey
+            question: inputMessage
           }
         : {
             question: inputMessage,
-            api_key: apiKey,
             context_type: 'medical_literature',
             include_clinical_implications: true
           };
@@ -180,12 +177,10 @@ export default function MedicalAnalysisInterface({ apiKey, pdfInfo }: MedicalAna
       const endpoint = pdfInfo ? '/api/query-pdf' : '/api/medical-analysis';
       const requestBody = pdfInfo 
         ? {
-            question: `Doctor Input Analysis: Dr. ${doctorName} (${specialty}) says: "${doctorInput}". Please analyze this input against the medical literature and provide collaborative analysis including agreement level, confidence changes, and follow-up questions.`,
-            api_key: apiKey
+            question: `Doctor Input Analysis: Dr. ${doctorName} (${specialty}) says: "${doctorInput}". Please analyze this input against the medical literature and provide collaborative analysis including agreement level, confidence changes, and follow-up questions.`
           }
         : {
             question: `Doctor Input Analysis: Dr. ${doctorName} (${specialty}) says: "${doctorInput}". Please provide collaborative analysis including agreement level, confidence changes, and follow-up questions.`,
-            api_key: apiKey,
             context_type: 'medical_literature',
             include_clinical_implications: true
           };

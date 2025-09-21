@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import Message from './Message';
 
 interface ChatInterfaceProps {
-  apiKey: string;
 }
 
 interface ChatMessage {
@@ -14,7 +13,7 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-export default function ChatInterface({ apiKey }: ChatInterfaceProps) {
+export default function ChatInterface({}: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
@@ -58,8 +57,7 @@ export default function ChatInterface({ apiKey }: ChatInterfaceProps) {
         body: JSON.stringify({
           developer_message: "You are a helpful AI assistant. Provide clear, accurate, and helpful responses to user questions.",
           user_message: userMessage.content,
-          model: "gpt-4o-mini",
-          api_key: apiKey
+          model: "gpt-4o-mini"
         }),
       });
 

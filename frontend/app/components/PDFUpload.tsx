@@ -5,10 +5,9 @@ import { useState } from 'react';
 interface PDFUploadProps {
   onUploadSuccess: (result: any) => void;
   onUploadError: (error: string) => void;
-  apiKey: string;
 }
 
-export default function PDFUpload({ onUploadSuccess, onUploadError, apiKey }: PDFUploadProps) {
+export default function PDFUpload({ onUploadSuccess, onUploadError }: PDFUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -34,7 +33,6 @@ export default function PDFUpload({ onUploadSuccess, onUploadError, apiKey }: PD
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('api_key', apiKey);
 
       const response = await fetch('/api/upload-pdf', {
         method: 'POST',

@@ -33,23 +33,22 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     developer_message: str  # Message from the developer/system
     user_message: str      # Message from the user
-    model: Optional[str] = "gpt-4.1-mini"  # Optional model selection with default
-    api_key: str          # OpenAI API key for authentication
+    model: Optional[str] = "gpt-4o-mini"  # Optional model selection with default
 
 class PDFQueryRequest(BaseModel):
     question: str         # User's question about the PDF
-    api_key: str          # OpenAI API key for authentication
 
 # Define the main chat endpoint that handles POST requests
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
     try:
-        # Debug: Check API key
-        print(f"API Key received: {request.api_key[:10]}...{request.api_key[-4:] if len(request.api_key) > 14 else 'SHORT'}")
-        print(f"API Key length: {len(request.api_key)}")
+        # Get API key from environment variables
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="OpenAI API key not configured")
         
-        # Initialize OpenAI client with the provided API key
-        client = OpenAI(api_key=request.api_key)
+        # Initialize OpenAI client with environment API key
+        client = OpenAI(api_key=api_key)
         
         # Create an async generator function for streaming responses
         async def generate():
@@ -77,7 +76,7 @@ async def chat(request: ChatRequest):
 
 # PDF Upload endpoint for RAG pipeline
 @app.post("/api/upload-pdf")
-async def upload_pdf(file: UploadFile = File(...), api_key: str = Form(...)):
+async def upload_pdf(file: UploadFile = File(...)):
     """
     Upload and process PDF file for RAG pipeline
     """
@@ -86,7 +85,12 @@ async def upload_pdf(file: UploadFile = File(...), api_key: str = Form(...)):
         if not file.filename.lower().endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are allowed")
         
-        # Create request-scoped RAG pipeline instance with API key
+        # Get API key from environment variables
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+        
+        # Create request-scoped RAG pipeline instance with environment API key
         rag_pipeline = RAGPipeline(api_key=api_key)
         
         # Save uploaded file temporarily
@@ -128,8 +132,13 @@ async def query_pdf(request: PDFQueryRequest):
     Query the uploaded PDF using RAG pipeline
     """
     try:
+        # Get API key from environment variables
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+        
         # Check if PDF has been processed for this API key
-        if request.api_key not in processed_pdfs:
+        if api_key not in processed_pdfs:
             return {
                 "success": False,
                 "answer": "No PDF has been processed yet. Please upload a PDF first.",
@@ -138,7 +147,7 @@ async def query_pdf(request: PDFQueryRequest):
             }
         
         # Use the stored RAG pipeline instance
-        rag_pipeline = processed_pdfs[request.api_key]
+        rag_pipeline = processed_pdfs[api_key]
         
         # Query the PDF
         result = await rag_pipeline.query_pdf(request.question)
