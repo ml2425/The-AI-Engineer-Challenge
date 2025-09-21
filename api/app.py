@@ -11,9 +11,26 @@ import sys
 import tempfile
 import asyncio
 from typing import Optional
-import pdf_service
-from pdf_service import RAGPipeline
 from dotenv import load_dotenv
+
+# Add current directory to Python path for Vercel
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# Try to import pdf_service, but handle the error gracefully
+try:
+    from pdf_service import RAGPipeline
+    PDF_SERVICE_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: pdf_service not available: {e}")
+    PDF_SERVICE_AVAILABLE = False
+    # Create a dummy RAGPipeline class for when imports fail
+    class RAGPipeline:
+        def __init__(self):
+            pass
+        async def build_vector_database(self, pdf_file_path: str):
+            return {"success": False, "message": "PDF service not available on this deployment"}
+        async def query_pdf(self, question: str, k: int = 4):
+            return {"success": False, "answer": "PDF service not available on this deployment"}
 
 # Load environment variables from .env file
 load_dotenv()
