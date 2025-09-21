@@ -7,9 +7,11 @@ from pydantic import BaseModel
 # Import OpenAI client for interacting with OpenAI's API
 from openai import OpenAI
 import os
+import sys
 import tempfile
 import asyncio
 from typing import Optional
+import pdf_service
 from pdf_service import RAGPipeline
 from dotenv import load_dotenv
 
@@ -178,16 +180,35 @@ async def query_pdf(request: PDFQueryRequest):
 @app.get("/api/debug")
 async def debug_env():
     """Debug endpoint to check environment variables"""
-    return {
-        "status": "debug",
-        "env_vars": list(os.environ.keys()),
-        "openai_key_exists": "OPENAI_API_KEY" in os.environ,
-        "openai_key_length": len(os.getenv("OPENAI_API_KEY", "")) if os.getenv("OPENAI_API_KEY") else 0
-    }
+    try:
+        # Safely get environment variables
+        env_vars = list(os.environ.keys()) if os.environ else []
+        openai_key_exists = "OPENAI_API_KEY" in os.environ if os.environ else False
+        openai_key = os.getenv("OPENAI_API_KEY", "")
+        openai_key_length = len(openai_key) if openai_key else 0
+        
+        return {
+            "status": "debug",
+            "env_vars": env_vars,
+            "openai_key_exists": openai_key_exists,
+            "openai_key_length": openai_key_length,
+            "python_version": sys.version
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
 
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok"}
+
+@app.get("/api/simple")
+async def simple_test():
+    """Simple test endpoint without complex imports"""
+    return {"status": "simple", "message": "Basic endpoint working"}
 
 # Import Mangum for Vercel serverless deployment
 from mangum import Mangum
