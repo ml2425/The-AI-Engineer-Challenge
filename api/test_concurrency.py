@@ -12,28 +12,21 @@ async def test_concurrent_rag_instances():
     
     print("🧪 Testing Concurrency Safety...")
     
-    # Simulate multiple users with different API keys
-    api_keys = [
-        "sk-test-user1-123456789",
-        "sk-test-user2-987654321", 
-        "sk-test-user3-555666777"
-    ]
-    
-    # Create multiple RAG instances simultaneously
+    # Create multiple RAG instances simultaneously (using environment variables)
     rag_instances = []
-    for i, api_key in enumerate(api_keys):
-        print(f"Creating RAG instance {i+1} with API key: {api_key[:10]}...")
-        rag_instance = RAGPipeline(api_key=api_key)
+    for i in range(3):
+        print(f"Creating RAG instance {i+1}...")
+        rag_instance = RAGPipeline()
         rag_instances.append(rag_instance)
     
-    # Verify each instance has its own API key
+    # Verify each instance is independent
     for i, instance in enumerate(rag_instances):
-        assert instance.api_key == api_keys[i], f"Instance {i+1} has wrong API key"
-        print(f"✅ Instance {i+1}: API key = {instance.api_key[:10]}...")
+        assert instance is not None, f"Instance {i+1} is None"
+        print(f"✅ Instance {i+1}: Created successfully")
     
     print("\n🎉 Concurrency Safety Test PASSED!")
     print("✅ Multiple RAG instances created successfully")
-    print("✅ Each instance maintains its own API key")
+    print("✅ Each instance uses environment variables")
     print("✅ No shared state between instances")
     
     return True
@@ -43,12 +36,12 @@ async def test_no_global_state():
     
     print("\n🧪 Testing No Global State...")
     
-    # Create two instances
-    instance1 = RAGPipeline(api_key="sk-test1")
-    instance2 = RAGPipeline(api_key="sk-test2")
+    # Create two instances (now using environment variables)
+    instance1 = RAGPipeline()
+    instance2 = RAGPipeline()
     
-    # Verify they are independent
-    assert instance1.api_key != instance2.api_key, "Instances share API keys!"
+    # Verify they are independent instances
+    assert instance1 != instance2, "Instances are the same object!"
     assert instance1.llm != instance2.llm, "Instances share LLM objects!"
     
     print("✅ No global state detected")

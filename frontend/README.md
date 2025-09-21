@@ -49,7 +49,6 @@ A modern, responsive chat interface built with Next.js and Tailwind CSS that int
 frontend/
 ├── app/
 │   ├── components/
-│   │   ├── ApiKeyInput.tsx    # API key input component
 │   │   ├── ChatInterface.tsx  # Main chat interface
 │   │   └── Message.tsx        # Individual message component
 │   ├── globals.css            # Global styles with Tailwind
