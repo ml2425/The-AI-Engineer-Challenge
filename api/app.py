@@ -15,6 +15,9 @@ from pdf_service import RAGPipeline
 # Initialize FastAPI application with a title
 app = FastAPI(title="OpenAI Chat API")
 
+# Global storage for processed PDFs (in production, use a database)
+processed_pdfs = {}
+
 # Configure CORS (Cross-Origin Resource Sharing) middleware
 # This allows the API to be accessed from different domains/origins
 app.add_middleware(
@@ -97,6 +100,9 @@ async def upload_pdf(file: UploadFile = File(...), api_key: str = Form(...)):
             result = await rag_pipeline.build_vector_database(temp_file_path)
             
             if result["success"]:
+                # Store the processed PDF for future queries
+                processed_pdfs[api_key] = rag_pipeline
+                
                 return {
                     "success": True,
                     "message": result["message"],
@@ -122,8 +128,17 @@ async def query_pdf(request: PDFQueryRequest):
     Query the uploaded PDF using RAG pipeline
     """
     try:
-        # Create request-scoped RAG pipeline instance with API key
-        rag_pipeline = RAGPipeline(api_key=request.api_key)
+        # Check if PDF has been processed for this API key
+        if request.api_key not in processed_pdfs:
+            return {
+                "success": False,
+                "answer": "No PDF has been processed yet. Please upload a PDF first.",
+                "context_count": 0,
+                "sources": []
+            }
+        
+        # Use the stored RAG pipeline instance
+        rag_pipeline = processed_pdfs[request.api_key]
         
         # Query the PDF
         result = await rag_pipeline.query_pdf(request.question)
@@ -152,9 +167,11 @@ async def query_pdf(request: PDFQueryRequest):
 async def health_check():
     return {"status": "ok"}
 
+# Import Mangum for Vercel serverless deployment
+from mangum import Mangum
+
 # Vercel handler for serverless deployment
-def handler(request):
-    return app(request.scope, request.receive, request.send)
+handler = Mangum(app)
 
 # Entry point for running the application directly
 if __name__ == "__main__":

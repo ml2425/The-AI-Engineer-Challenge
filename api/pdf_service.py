@@ -79,7 +79,17 @@ class RAGPipeline:
         
         # Initialize LLM if API key is provided
         if self.api_key:
-            self.llm = ChatOpenAI(api_key=self.api_key)
+            # Create custom ChatOpenAI with passed API key
+            from openai import OpenAI, AsyncOpenAI
+            
+            class CustomChatOpenAI(ChatOpenAI):
+                def __init__(self, api_key: str, model_name: str = "gpt-4o-mini"):
+                    self.model_name = model_name
+                    self.openai_api_key = api_key
+                    self._client = OpenAI(api_key=api_key)
+                    self._async_client = AsyncOpenAI(api_key=api_key)
+            
+            self.llm = CustomChatOpenAI(self.api_key)
     
     def _setup_prompts(self):
         """Setup RAG-specific prompts"""
@@ -125,8 +135,20 @@ Please provide your answer based solely on the PDF context above."""
             # Process text into chunks
             text_chunks = self.pdf_processor.process_pdf_text(pdf_text)
             
-            # Build vector database
-            self.vector_db = VectorDatabase()
+            # Build vector database with API key
+            from aimakerspace.openai_utils.embedding import EmbeddingModel
+            from openai import AsyncOpenAI, OpenAI
+            
+            # Create custom embedding model with passed API key
+            class CustomEmbeddingModel(EmbeddingModel):
+                def __init__(self, api_key: str):
+                    self.openai_api_key = api_key
+                    self.embeddings_model_name = "text-embedding-3-small"
+                    self.async_client = AsyncOpenAI(api_key=api_key)
+                    self.client = OpenAI(api_key=api_key)
+            
+            embedding_model = CustomEmbeddingModel(self.api_key)
+            self.vector_db = VectorDatabase(embedding_model=embedding_model)
             self.vector_db = await self.vector_db.abuild_from_list(text_chunks)
             
             return {
@@ -166,7 +188,17 @@ Please provide your answer based solely on the PDF context above."""
         try:
             # Ensure LLM is initialized with API key
             if self.llm is None and self.api_key:
-                self.llm = ChatOpenAI(api_key=self.api_key)
+                # Create custom ChatOpenAI with passed API key
+                from openai import OpenAI, AsyncOpenAI
+                
+                class CustomChatOpenAI(ChatOpenAI):
+                    def __init__(self, api_key: str, model_name: str = "gpt-4o-mini"):
+                        self.model_name = model_name
+                        self.openai_api_key = api_key
+                        self._client = OpenAI(api_key=api_key)
+                        self._async_client = AsyncOpenAI(api_key=api_key)
+                
+                self.llm = CustomChatOpenAI(self.api_key)
             elif self.llm is None:
                 return {
                     "success": False,

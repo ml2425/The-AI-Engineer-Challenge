@@ -50,10 +50,6 @@ export default function ChatInterface({ apiKey }: ChatInterfaceProps) {
     setIsLoading(true);
 
     try {
-      // Debug: Check API key being sent
-      console.log('Sending API key:', apiKey ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}` : 'EMPTY');
-      console.log('API key length:', apiKey ? apiKey.length : 0);
-      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -71,24 +67,39 @@ export default function ChatInterface({ apiKey }: ChatInterfaceProps) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      
-      if (!data.success) {
-        console.error('Chat API Error:', data);
-        throw new Error(data.error || 'Failed to get response');
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
       }
 
+      let assistantMessage = '';
       const assistantMessageId = (Date.now() + 1).toString();
       
-      // Add assistant message
-      const assistantMessage: ChatMessage = {
+      // Add initial assistant message
+      const initialAssistantMessage: ChatMessage = {
         id: assistantMessageId,
         role: 'assistant',
-        content: data.response,
+        content: '',
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages(prev => [...prev, initialAssistantMessage]);
+
+      // Stream the response
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = new TextDecoder().decode(value);
+        assistantMessage += chunk;
+
+        // Update the assistant message with new content
+        setMessages(prev => prev.map(msg => 
+          msg.id === assistantMessageId 
+            ? { ...msg, content: assistantMessage }
+            : msg
+        ));
+      }
 
     } catch (error) {
       console.error('Error sending message:', error);
@@ -96,7 +107,7 @@ export default function ChatInterface({ apiKey }: ChatInterfaceProps) {
       const errorMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please check your API key and try again.`,
+        content: 'Sorry, I encountered an error. Please check your API key and try again.',
         timestamp: new Date()
       };
       
